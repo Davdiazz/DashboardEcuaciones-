@@ -195,7 +195,11 @@
         let snake = [{x: 10, y: 10}];
         let dx = 0;
         let dy = 0;
-        let food = {x: 15, y: 10};
+        let foods = [];
+        const FOOD_COUNT = 5;          // siempre hay 5 frutas en pantalla
+        const FOOD_MIN_LIFE = 4000;    // duración mínima de una fruta (ms)
+        const FOOD_MAX_LIFE = 9000;    // duración máxima de una fruta (ms)
+        const FOOD_BLINK_TIME = 1500;  // parpadea antes de desaparecer (ms)
         let score = 1;
         let highScore = 0;
         let gameSpeed = 100;
@@ -203,7 +207,6 @@
         let gameRunning = false;
 
         const fruits = ['🍎', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓'];
-        let currentFruit = fruits[0];
 
         // Controles de teclado
         document.addEventListener('keydown', changeDirection);
@@ -293,15 +296,15 @@
                 endGame();
                 return;
             }
-            if (checkFoodCollision()) {
+            const eatenIndex = checkFoodCollision();
+            if (eatenIndex !== -1) {
                 score++;
                 scoreElement.textContent = 'Puntuación: ' + score;
                 if (score > highScore) {
                     highScore = score;
                     highScoreElement.textContent = 'Récord: ' + highScore;
                 }
-                generateFood();
-                currentFruit = fruits[Math.floor(Math.random() * fruits.length)];
+                foods[eatenIndex] = createFood();
                 
                 // Aumentar velocidad gradualmente
                 if (score % 5 === 0 && gameSpeed > 50) {
@@ -312,6 +315,8 @@
             } else {
                 snake.pop();
             }
+            
+            updateFoods();
             
             // Verificar victoria (90% del tablero lleno)
             if (snake.length >= (tileCountX * tileCountY * 0.9)) {
@@ -345,22 +350,41 @@
             return false;
         }
 
+        // Devuelve el índice de la fruta comida, o -1 si no comió ninguna
         function checkFoodCollision() {
-            return snake[0].x === food.x && snake[0].y === food.y;
+            return foods.findIndex(f => f.x === snake[0].x && f.y === snake[0].y);
         }
 
-        function generateFood() {
-            let validPosition = false;
+        // Crea una fruta en una casilla libre con un tiempo de vida aleatorio
+        function createFood() {
+            let x, y, validPosition = false;
             while (!validPosition) {
-                food.x = Math.floor(Math.random() * tileCountX);
-                food.y = Math.floor(Math.random() * tileCountY);
-                
-                validPosition = true;
-                for (let segment of snake) {
-                    if (segment.x === food.x && segment.y === food.y) {
-                        validPosition = false;
-                        break;
-                    }
+                x = Math.floor(Math.random() * tileCountX);
+                y = Math.floor(Math.random() * tileCountY);
+                validPosition = !snake.some(s => s.x === x && s.y === y) &&
+                                !foods.some(f => f.x === x && f.y === y);
+            }
+            return {
+                x: x,
+                y: y,
+                fruit: fruits[Math.floor(Math.random() * fruits.length)],
+                life: FOOD_MIN_LIFE + Math.random() * (FOOD_MAX_LIFE - FOOD_MIN_LIFE)
+            };
+        }
+
+        function generateFoods() {
+            foods = [];
+            for (let i = 0; i < FOOD_COUNT; i++) {
+                foods.push(createFood());
+            }
+        }
+
+        // Descuenta el tiempo de cada fruta; la que se acaba se reemplaza por otra
+        function updateFoods() {
+            for (let i = 0; i < foods.length; i++) {
+                foods[i].life -= gameSpeed;
+                if (foods[i].life <= 0) {
+                    foods[i] = createFood();
                 }
             }
         }
@@ -416,7 +440,14 @@
             
             // Dibujar comida (emoji de fruta)
             ctx.font = '18px Arial';
-            ctx.fillText(currentFruit, food.x * gridSize + 1, food.y * gridSize + 16);
+            foods.forEach(f => {
+                // Parpadea cuando está por desaparecer
+                if (f.life < FOOD_BLINK_TIME && Math.floor(f.life / 250) % 2 === 0) {
+                    ctx.globalAlpha = 0.3;
+                }
+                ctx.fillText(f.fruit, f.x * gridSize + 1, f.y * gridSize + 16);
+                ctx.globalAlpha = 1;
+            });
         }
 
         function endGame() {
@@ -439,8 +470,7 @@
             score = 0;
             gameSpeed = 100;
             scoreElement.textContent = 'Puntuación: 0';
-            generateFood();
-            currentFruit = fruits[0];
+            generateFoods();
             document.getElementById('gameOverScreen').style.display = 'none';
             document.getElementById('victoryScreen').style.display = 'none';
             gameRunning = false;
@@ -448,7 +478,7 @@
         }
 
         
-        generateFood();
+        generateFoods();
         draw();
     </script>
 </body>
