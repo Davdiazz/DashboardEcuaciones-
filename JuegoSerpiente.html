@@ -440,6 +440,8 @@
             
             // Dibujar comida (emoji de fruta)
             ctx.font = '18px Arial';
+            // En iPhone el emoji toma el color del fillStyle (si es degradado, sale como silueta)
+            ctx.fillStyle = '#000000';
             foods.forEach(f => {
                 // Parpadea cuando está por desaparecer
                 if (f.life < FOOD_BLINK_TIME && Math.floor(f.life / 250) % 2 === 0) {
